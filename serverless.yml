@@ -1,0 +1,80 @@
+org: antoniocot
+service: api-prestamos
+
+provider:
+  name: aws
+  runtime: python3.12
+  memorySize: 1024
+  timeout: 30
+  iam:
+    role: arn:aws:iam::316129865556:role/LabRole
+  environment:
+    PRESTAMOS_TABLE: TABLA-PRESTAMOS
+    CUENTAS_TABLE: TABLA-CUENTAS
+    PAGOS_TABLE: TABLA-PAGOS
+
+functions:
+  crearPrestamo:
+    handler: crearPrestamo.lambda_handler
+    events:
+      - http:
+          path: /prestamo/crear
+          method: post
+          cors: true
+
+  obtenerPrestamo:
+    handler: obtenerPrestamo.lambda_handler
+    events:
+      - http:
+          path: /prestamo/obtener
+          method: post
+          cors: true
+
+  actualizarEstadoPrestamo:
+    handler: actualizarEstadoPrestamo.lambda_handler
+    events:
+      - http:
+          path: /prestamo/actualizar-estado
+          method: post
+          cors: true
+
+  actualizarEstadoPrestamo:
+    handler: listarPrestamoPorUsuario.lambda_handler
+    events:
+      - http:
+          path: /prestamo/listar-usuario
+          method: post
+          cors: true
+
+resources:
+  Resources:
+    PrestamosTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.PRESTAMOS_TABLE}
+        AttributeDefinitions:
+          - AttributeName: usuario_id
+            AttributeType: S
+          - AttributeName: prestamo_id
+            AttributeType: S
+          - AttributeName: estado
+            AttributeType: S
+          - AttributeName: fecha_creacion
+            AttributeType: S
+        KeySchema:
+          - AttributeName: usuario_id
+            KeyType: HASH
+          - AttributeName: prestamo_id
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES # Activando streams para eventos
+        GlobalSecondaryIndexes:
+          - IndexName: EstadoIndex
+            KeySchema:
+              - AttributeName: usuario_id
+                KeyType: HASH
+              - AttributeName: estado
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
