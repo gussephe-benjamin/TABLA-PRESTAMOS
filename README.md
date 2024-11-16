@@ -128,3 +128,204 @@ Esta tabla gestiona los préstamos aprobados.
 - **12 funciones Lambda.**
 
 Cada función Lambda gestiona un aspecto clave del sistema, asegurando que las relaciones entre las tablas se manejen correctamente y que el flujo de datos sea consistente.
+
+
+
+
+----
+
+
+### JSON de Entrada y Salida para las funciones Lambda de la **Tabla de Préstamos**
+
+---
+
+### **1. Crear Préstamo (POST)**  
+**Endpoint:** `/prestamo/crear`
+
+#### **Entrada:**
+```json
+{
+  "usuario_id": "user123",
+  "cuenta_id": "account12345",
+  "monto": 10000,
+  "plazo": 12,
+  "tasa_interes": 0.05,
+  "descripcion": "Préstamo personal para compra de auto"
+}
+```
+
+#### **Salida (Éxito):**
+```json
+{
+  "usuario_id": "user123",
+  "prestamo_id": "uuid-generado",
+  "cuenta_id": "account12345",
+  "monto": 10000,
+  "plazo": 12,
+  "tasa_interes": 0.05,
+  "estado": "pendiente",
+  "descripcion": "Préstamo personal para compra de auto",
+  "fecha_creacion": "2024-11-12T12:00:00Z"
+}
+```
+
+#### **Errores Posibles:**
+1. **Faltan campos obligatorios:**
+   ```json
+   {
+     "error": "Solicitud inválida",
+     "details": "Faltan campos obligatorios: usuario_id, cuenta_id, monto, plazo o tasa_interes"
+   }
+   ```
+
+2. **Usuario o Cuenta no encontrados:**
+   ```json
+   {
+     "error": "Usuario o Cuenta no encontrados",
+     "details": "El usuario o la cuenta asociada no existen"
+   }
+   ```
+
+---
+
+### **2. Actualizar Préstamo (PUT)**  
+**Endpoint:** `/prestamo/actualizar`
+
+#### **Entrada:**
+```json
+{
+  "usuario_id": "user123",
+  "prestamo_id": "uuid-prestamo001",
+  "estado": "activo"
+}
+```
+
+#### **Salida (Éxito):**
+```json
+{
+  "usuario_id": "user123",
+  "prestamo_id": "uuid-prestamo001",
+  "estado_anterior": "pendiente",
+  "estado_nuevo": "activo"
+}
+```
+
+#### **Errores Posibles:**
+1. **Faltan campos obligatorios:**
+   ```json
+   {
+     "error": "Solicitud inválida",
+     "details": "Faltan campos obligatorios: usuario_id, prestamo_id o estado"
+   }
+   ```
+
+2. **Préstamo no encontrado:**
+   ```json
+   {
+     "error": "Préstamo no encontrado",
+     "details": "No existe un préstamo asociado al usuario_id y prestamo_id proporcionados"
+   }
+   ```
+
+3. **Estado no permitido:**
+   ```json
+   {
+     "error": "Estado inválido",
+     "details": "El estado proporcionado no es válido. Estados permitidos: pendiente, activo, rechazado"
+   }
+   ```
+
+---
+
+### **3. Listar Préstamos (GET)**  
+**Endpoint:** `/prestamo/listar`
+
+#### **Entrada:**
+```json
+{
+  "usuario_id": "user123"
+}
+```
+
+#### **Salida (Éxito):**
+```json
+[
+  {
+    "usuario_id": "user123",
+    "prestamo_id": "uuid-prestamo001",
+    "monto": 10000,
+    "plazo": 12,
+    "tasa_interes": 0.05,
+    "estado": "activo",
+    "descripcion": "Préstamo personal para compra de auto",
+    "fecha_creacion": "2024-11-12T12:00:00Z"
+  },
+  {
+    "usuario_id": "user123",
+    "prestamo_id": "uuid-prestamo002",
+    "monto": 5000,
+    "plazo": 6,
+    "tasa_interes": 0.03,
+    "estado": "pendiente",
+    "descripcion": "Préstamo para estudios",
+    "fecha_creacion": "2024-11-10T08:00:00Z"
+  }
+]
+```
+
+#### **Errores Posibles:**
+1. **Faltan campos obligatorios:**
+   ```json
+   {
+     "error": "Solicitud inválida",
+     "details": "Falta el campo usuario_id"
+   }
+   ```
+
+---
+
+### **4. Obtener Préstamo (GET)**  
+**Endpoint:** `/prestamo/obtener`
+
+#### **Entrada:**
+```json
+{
+  "usuario_id": "user123",
+  "prestamo_id": "uuid-prestamo001"
+}
+```
+
+#### **Salida (Éxito):**
+```json
+{
+  "usuario_id": "user123",
+  "prestamo_id": "uuid-prestamo001",
+  "monto": 10000,
+  "plazo": 12,
+  "tasa_interes": 0.05,
+  "estado": "activo",
+  "descripcion": "Préstamo personal para compra de auto",
+  "fecha_creacion": "2024-11-12T12:00:00Z"
+}
+```
+
+#### **Errores Posibles:**
+1. **Faltan campos obligatorios:**
+   ```json
+   {
+     "error": "Solicitud inválida",
+     "details": "Faltan campos obligatorios: usuario_id, prestamo_id"
+   }
+   ```
+
+2. **Préstamo no encontrado:**
+   ```json
+   {
+     "error": "Préstamo no encontrado",
+     "details": "No existe un préstamo asociado al usuario_id y prestamo_id proporcionados"
+   }
+   ```
+
+---
+
+¿Hay algo más que quieras afinar o agregar? 😊
