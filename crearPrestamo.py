@@ -7,7 +7,6 @@ import uuid
 dynamodb = boto3.resource('dynamodb')
 prestamos_table = dynamodb.Table('TABLA-PRESTAMOS')
 cuentas_table = dynamodb.Table('TABLA-CUENTAS')
-pagos_table = dynamodb.Table('TABLA-PAGOS')
 
 # Función auxiliar para convertir Decimal a tipos serializables
 def decimal_to_serializable(obj):
@@ -28,7 +27,7 @@ def lambda_handler(event, context):
         monto = Decimal(data['monto'])
         plazo = int(data['plazo'])
         tasa_interes = Decimal(data['tasa_interes'])
-        descripcion = data.get('descripcion', '')
+        descripcion = data.get('descripcion', 'Préstamo solicitado')
 
         # Generar un ID único para el préstamo
         prestamo_id = str(uuid.uuid4())
@@ -41,20 +40,11 @@ def lambda_handler(event, context):
                 'body': json.dumps({'error': 'Cuenta no encontrada para este usuario.'})
             }
 
-        # Verificar si el préstamo ya existe
-        # NOTA: Esta verificación es redundante si siempre generas un nuevo prestamo_id
-        response = prestamos_table.get_item(Key={'usuario_id': usuario_id, 'prestamo_id': prestamo_id})
-        if 'Item' in response:
-            return {
-                'statusCode': 400,
-                'body': json.dumps({'error': 'El préstamo ya existe.'})
-            }
-
         # Crear el préstamo
         fecha_creacion = datetime.utcnow().isoformat()
         prestamo_item = {
             'usuario_id': usuario_id,
-            'prestamo_id': prestamo_id,  # Usar el ID generado dinámicamente
+            'prestamo_id': prestamo_id,
             'monto': monto,
             'descripcion': descripcion,
             'estado': 'activo',
@@ -63,7 +53,6 @@ def lambda_handler(event, context):
             'fecha_creacion': fecha_creacion,
             'fecha_vencimiento': (datetime.utcnow().replace(year=datetime.utcnow().year + int(plazo / 12))).isoformat()
         }
-
         prestamos_table.put_item(Item=prestamo_item)
 
         # Actualizar el saldo de la cuenta asociada
@@ -75,26 +64,27 @@ def lambda_handler(event, context):
             ExpressionAttributeValues={':nuevo_saldo': nuevo_saldo}
         )
 
-        # Generar un pago asociado al préstamo
-        pago_id = str(uuid.uuid4())
-        pago_item = {
-            'usuario_id': usuario_id,
-            'pago_id': pago_id,
-            'titulo': f'Pago del préstamo {prestamo_id}',  # Usar el ID generado dinámicamente
-            'descripcion': f'Relacionado con el préstamo {prestamo_id}',  # Usar el ID generado dinámicamente
-            'tipo': 'préstamo',
-            'monto': monto + (monto * tasa_interes / 100),  # Incluyendo intereses
-            'estado': 'pendiente',
-            'fecha': fecha_creacion
+        # Llamar a la función "crearPagoDeuda" para generar el pago asociado
+        pago_request = {
+            "usuario_id": usuario_id,
+            "datos_pago": {
+                "titulo": f"Pago del préstamo {prestamo_id}",
+                "descripcion": f"Pago relacionado con el préstamo {prestamo_id}",
+                "monto": float(monto + (monto * tasa_interes / 100))
+            }
         }
-        pagos_table.put_item(Item=pago_item)
+
+        # Simular una llamada a la función crearPagoDeuda
+        from CrearPagoDeuda import lambda_handler as crearPagoDeuda
+        pago_response = crearPagoDeuda({"body": json.dumps(pago_request)}, context)
+        pago_data = json.loads(pago_response["body"])  # Obtener los datos del pago creado
 
         return {
             'statusCode': 200,
             'body': json.dumps({
                 'message': 'Préstamo creado exitosamente',
                 'prestamo': decimal_to_serializable(prestamo_item),
-                'pago_generado': decimal_to_serializable(pago_item)
+                'pago_generado': decimal_to_serializable(pago_data)
             })
         }
 
