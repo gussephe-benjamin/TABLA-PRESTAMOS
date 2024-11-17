@@ -71,7 +71,7 @@ def lambda_handler(event, context):
 
         # Invocar la función Lambda ModificarCuenta
         response = lambda_client.invoke(
-            FunctionName="api-cuentas-dev-ModificarCuenta",  # Cambia al ARN si es necesario
+            FunctionName="arn:aws:lambda:us-east-1:316129865556:function:api-cuentas-dev-ModificarCuenta",  # Cambia al ARN si es necesario
             InvocationType="RequestResponse",
             Payload=json.dumps({"body": actualizar_cuenta_payload})
         )
