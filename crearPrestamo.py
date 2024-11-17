@@ -30,6 +30,9 @@ def lambda_handler(event, context):
         tasa_interes = Decimal(data['tasa_interes'])
         descripcion = data.get('descripcion', '')
 
+        # Generar un ID único para el préstamo
+        prestamo_id = str(uuid.uuid4())
+
         # Verificar que la cuenta exista
         cuenta_response = cuentas_table.get_item(Key={'usuario_id': usuario_id, 'cuenta_id': cuenta_id})
         if 'Item' not in cuenta_response:
@@ -39,18 +42,19 @@ def lambda_handler(event, context):
             }
 
         # Verificar si el préstamo ya existe
+        # NOTA: Esta verificación es redundante si siempre generas un nuevo prestamo_id
         response = prestamos_table.get_item(Key={'usuario_id': usuario_id, 'prestamo_id': prestamo_id})
         if 'Item' in response:
             return {
                 'statusCode': 400,
                 'body': json.dumps({'error': 'El préstamo ya existe.'})
             }
-        
+
         # Crear el préstamo
         fecha_creacion = datetime.utcnow().isoformat()
         prestamo_item = {
             'usuario_id': usuario_id,
-            'prestamo_id': str(uuid.uuid4()),
+            'prestamo_id': prestamo_id,  # Usar el ID generado dinámicamente
             'monto': monto,
             'descripcion': descripcion,
             'estado': 'activo',
@@ -76,8 +80,8 @@ def lambda_handler(event, context):
         pago_item = {
             'usuario_id': usuario_id,
             'pago_id': pago_id,
-            'titulo': f'Pago del préstamo {prestamo_id}',
-            'descripcion': f'Relacionado con el préstamo {prestamo_id}',
+            'titulo': f'Pago del préstamo {prestamo_id}',  # Usar el ID generado dinámicamente
+            'descripcion': f'Relacionado con el préstamo {prestamo_id}',  # Usar el ID generado dinámicamente
             'tipo': 'préstamo',
             'monto': monto + (monto * tasa_interes / 100),  # Incluyendo intereses
             'estado': 'pendiente',
@@ -87,11 +91,11 @@ def lambda_handler(event, context):
 
         return {
             'statusCode': 200,
-            'body': {
+            'body': json.dumps({
                 'message': 'Préstamo creado exitosamente',
                 'prestamo': decimal_to_serializable(prestamo_item),
                 'pago_generado': decimal_to_serializable(pago_item)
-            }
+            })
         }
 
     except Exception as e:
