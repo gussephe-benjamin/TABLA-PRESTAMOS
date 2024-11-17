@@ -1,13 +1,15 @@
 import boto3
 import json
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, getcontext
 import uuid
 
-# Configuración de DynamoDB
+# Configurar contexto para Decimal
+getcontext().prec = 28  # Configurar precisión global
+
+# Conexión a DynamoDB
 dynamodb = boto3.resource('dynamodb')
 prestamos_table = dynamodb.Table('TABLA-PRESTAMOS')
-cuentas_table = dynamodb.Table('TABLA-CUENTA')
 
 # Función auxiliar para convertir Decimal a tipos JSON serializables
 def decimal_to_serializable(obj):
@@ -21,100 +23,75 @@ def decimal_to_serializable(obj):
 
 def lambda_handler(event, context):
     try:
-        # Validar el cuerpo de la solicitud
-        if 'body' not in event or not event['body']:
-            return {
-                'statusCode': 400,
-                'body': json.dumps({'error': 'Solicitud inválida', 'details': 'No se encontró el cuerpo de la solicitud'})
-            }
-
+        # Obtener datos de la solicitud
         data = json.loads(event['body'])
-        usuario_id = data.get('usuario_id')
-        cuenta_id = data.get('cuenta_id')
-        monto = Decimal(str(data.get('monto')))
-        plazo = int(data.get('plazo'))
-        tasa_interes = Decimal(str(data.get('tasa_interes')))
+        print(f"Datos recibidos: {data}")
+        
+        usuario_id = data['usuario_id']
+        cuenta_id = data['cuenta_id']
+        monto = Decimal(str(data['monto']))  # Asegurar que monto sea string antes de convertir
+        plazo = int(data['plazo'])
+        tasa_interes = Decimal(str(data['tasa_interes']))  # Asegurar que tasa_interes sea string
         descripcion = data.get('descripcion', 'Préstamo solicitado')
 
-        # Validar campos requeridos
-        if not usuario_id or not cuenta_id or not monto or not plazo or not tasa_interes:
-            return {
-                'statusCode': 400,
-                'body': json.dumps({'error': 'Campos obligatorios faltantes', 'details': 'usuario_id, cuenta_id, monto, plazo y tasa_interes son obligatorios'})
-            }
+        # Generar un ID único para el préstamo
+        prestamo_id = str(uuid.uuid4())
 
-        # Verificar que la cuenta exista
-        cuenta_response = cuentas_table.get_item(Key={'usuario_id': usuario_id, 'cuenta_id': cuenta_id})
-        if 'Item' not in cuenta_response:
-            return {
-                'statusCode': 404,
-                'body': json.dumps({'error': 'Cuenta no encontrada para este usuario'})
-            }
-
-        cuenta_actual = cuenta_response['Item']
-
-        # Validar que cuenta_datos contenga saldo
-        if 'cuenta_datos' not in cuenta_actual or 'saldo' not in cuenta_actual['cuenta_datos']:
-            return {
-                'statusCode': 500,
-                'body': json.dumps({'error': 'Estructura de cuenta inválida', 'details': 'Falta cuenta_datos o saldo'})
-            }
+        # Cálculo del monto total con intereses
+        monto_total = monto + (monto * tasa_interes / Decimal('100'))
+        monto_total = monto_total.quantize(Decimal('0.01'))  # Redondear a 2 decimales
 
         # Crear el préstamo
-        prestamo_id = str(uuid.uuid4())
         fecha_creacion = datetime.utcnow().isoformat()
-        fecha_vencimiento = (datetime.utcnow().replace(year=datetime.utcnow().year + int(plazo / 12))).isoformat()
-
         prestamo_item = {
             'usuario_id': usuario_id,
             'prestamo_id': prestamo_id,
-            'monto': monto,
+            'cuenta_id': cuenta_id,
+            'monto': monto_total,
             'descripcion': descripcion,
             'estado': 'activo',
             'plazo': plazo,
             'tasa_interes': tasa_interes,
             'fecha_creacion': fecha_creacion,
-            'fecha_vencimiento': fecha_vencimiento
+            'fecha_vencimiento': (datetime.utcnow().replace(year=datetime.utcnow().year + plazo // 12)).isoformat()
         }
+        print(f"Préstamo a registrar: {prestamo_item}")
 
         prestamos_table.put_item(Item=prestamo_item)
 
-        # Actualizar el saldo de la cuenta asociada
-        nuevo_saldo = cuenta_actual['cuenta_datos']['saldo'] + monto
-        cuentas_table.update_item(
-            Key={'usuario_id': usuario_id, 'cuenta_id': cuenta_id},
-            UpdateExpression='SET cuenta_datos.saldo = :nuevo_saldo',
-            ExpressionAttributeValues={':nuevo_saldo': nuevo_saldo}
-        )
-
-        # Generar un pago asociado al préstamo
-        pago_request = {
+        # Preparar la solicitud para actualizar la cuenta
+        actualizar_cuenta_payload = {
             "usuario_id": usuario_id,
-            "datos_pago": {
-                "titulo": f"Pago del préstamo {prestamo_id}",
-                "descripcion": f"Pago relacionado con el préstamo {prestamo_id}",
-                "monto": float(monto + (monto * tasa_interes / 100))
+            "cuenta_id": cuenta_id,
+            "cuenta_datos": {
+                "saldo": monto_total,  # Incrementar el saldo de la cuenta
+                "descripcion": "Actualización por creación de préstamo"
             }
         }
 
-        # Simular la creación del pago usando la función "crearPagoDeuda"
-        from CrearPagoDeuda import lambda_handler as crearPagoDeuda
-        pago_response = crearPagoDeuda({"body": json.dumps(pago_request)}, context)
-        pago_data = json.loads(pago_response["body"])
+        # Invocar la función Lambda ModificarCuenta
+        response = lambda_client.invoke(
+            FunctionName="api-cuentas-dev-ModificarCuenta",  # Cambia al ARN si es necesario
+            InvocationType="RequestResponse",
+            Payload=json.dumps({"body": actualizar_cuenta_payload})
+        )
+        
+        # Leer la respuesta de la invocación
+        cuenta_response = json.loads(response['Payload'].read())
+        if cuenta_response.get('statusCode') != 200:
+            raise Exception(f"Error al actualizar la cuenta: {cuenta_response.get('body')}")
+        
 
-        # Respuesta exitosa
         return {
             'statusCode': 200,
-            'body': json.dumps({
-                'message': 'Préstamo creado exitosamente',
+            'body': {
+                'message': 'Préstamo creado exitosamente y cuenta actualizada',
                 'prestamo': decimal_to_serializable(prestamo_item),
-                'pago_generado': decimal_to_serializable(pago_data)
-            })
+                'cuenta_actualizada': json.loads(cuenta_response.get('body'))  # Detalles de la cuenta actualizada
+            }
         }
 
     except Exception as e:
-        # Manejo de errores
         return {
             'statusCode': 500,
-            'body': json.dumps({'error': 'Error interno al crear el préstamo', 'details': str(e)})
-        }
+           
