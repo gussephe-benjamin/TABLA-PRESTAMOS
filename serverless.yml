@@ -59,8 +59,6 @@ resources:
             AttributeType: S
           - AttributeName: estado
             AttributeType: S
-          - AttributeName: fecha_creacion
-            AttributeType: S
         KeySchema:
           - AttributeName: usuario_id
             KeyType: HASH
