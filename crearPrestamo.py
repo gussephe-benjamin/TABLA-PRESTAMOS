@@ -25,7 +25,6 @@ def lambda_handler(event, context):
         data = json.loads(event['body'])
         usuario_id = data['usuario_id']
         cuenta_id = data['cuenta_id']
-        prestamo_id = data['prestamo_id']
         monto = Decimal(data['monto'])
         plazo = int(data['plazo'])
         tasa_interes = Decimal(data['tasa_interes'])
@@ -46,12 +45,12 @@ def lambda_handler(event, context):
                 'statusCode': 400,
                 'body': json.dumps({'error': 'El préstamo ya existe.'})
             }
-
+        
         # Crear el préstamo
         fecha_creacion = datetime.utcnow().isoformat()
         prestamo_item = {
             'usuario_id': usuario_id,
-            'prestamo_id': prestamo_id,
+            'prestamo_id': str(uuid.uuid4()),
             'monto': monto,
             'descripcion': descripcion,
             'estado': 'activo',
