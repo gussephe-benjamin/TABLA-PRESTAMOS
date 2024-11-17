@@ -91,7 +91,8 @@ def lambda_handler(event, context):
             }
         }
 
-    except Exception as e:
+ except Exception as e:
         return {
             'statusCode': 500,
-           
+            'body': json.dumps({'error': 'Error interno al crear el préstamo', 'details': str(e)})
+        }
