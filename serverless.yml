@@ -38,7 +38,7 @@ functions:
           method: post
           cors: true
 
-  actualizarEstadoPrestamo:
+  listarPrestamobyID:
     handler: listarPrestamoPorUsuario.lambda_handler
     events:
       - http:
