@@ -9,6 +9,16 @@ prestamos_table = dynamodb.Table('TABLA-PRESTAMOS')
 cuentas_table = dynamodb.Table('TABLA-CUENTAS')
 pagos_table = dynamodb.Table('TABLA-PAGOS')
 
+# Función auxiliar para convertir Decimal a tipos serializables
+def decimal_to_serializable(obj):
+    if isinstance(obj, Decimal):
+        return float(obj) if obj % 1 != 0 else int(obj)
+    elif isinstance(obj, list):
+        return [decimal_to_serializable(item) for item in obj]
+    elif isinstance(obj, dict):
+        return {key: decimal_to_serializable(value) for key, value in obj.items()}
+    return obj
+
 def lambda_handler(event, context):
     try:
         # Obtener datos de la solicitud
@@ -80,8 +90,8 @@ def lambda_handler(event, context):
             'statusCode': 200,
             'body': {
                 'message': 'Préstamo creado exitosamente',
-                'prestamo': prestamo_item,
-                'pago_generado': pago_item
+                'prestamo': decimal_to_serializable(prestamo_item),
+                'pago_generado': decimal_to_serializable(pago_item)
             }
         }
 
