@@ -59,35 +59,35 @@ def lambda_handler(event, context):
 
         prestamos_table.put_item(Item=prestamo_item)
 
-        # Preparar la solicitud para actualizar la cuenta
-        actualizar_cuenta_payload = {
-            "usuario_id": usuario_id,
-            "cuenta_id": cuenta_id,
-            "cuenta_datos": {
-                "saldo": monto_total,  # Incrementar el saldo de la cuenta
-                "descripcion": "Actualización por creación de préstamo"
-            }
-        }
+        # # Preparar la solicitud para actualizar la cuenta
+        # actualizar_cuenta_payload = {
+        #     "usuario_id": usuario_id,
+        #     "cuenta_id": cuenta_id,
+        #     "cuenta_datos": {
+        #         "saldo": monto_total,  # Incrementar el saldo de la cuenta
+        #         "descripcion": "Actualización por creación de préstamo"
+        #     }
+        # }
 
-        # Invocar la función Lambda ModificarCuenta
-        response = lambda_client.invoke(
-            FunctionName="arn:aws:lambda:us-east-1:316129865556:function:api-cuentas-dev-ModificarCuenta",  # Cambia al ARN si es necesario
-            InvocationType="RequestResponse",
-            Payload=json.dumps({"body": actualizar_cuenta_payload})
-        )
+        # # Invocar la función Lambda ModificarCuenta
+        # response = lambda_client.invoke(
+        #     FunctionName="arn:aws:lambda:us-east-1:316129865556:function:api-cuentas-dev-ModificarCuenta",  # Cambia al ARN si es necesario
+        #     InvocationType="RequestResponse",
+        #     Payload=json.dumps({"body": actualizar_cuenta_payload})
+        # )
         
-        # Leer la respuesta de la invocación
-        cuenta_response = json.loads(response['Payload'].read())
-        if cuenta_response.get('statusCode') != 200:
-            raise Exception(f"Error al actualizar la cuenta: {cuenta_response.get('body')}")
+        # # Leer la respuesta de la invocación
+        # cuenta_response = json.loads(response['Payload'].read())
+        # if cuenta_response.get('statusCode') != 200:
+        #     raise Exception(f"Error al actualizar la cuenta: {cuenta_response.get('body')}")
         
 
         return {
             'statusCode': 200,
             'body': {
                 'message': 'Préstamo creado exitosamente y cuenta actualizada',
-                'prestamo': decimal_to_serializable(prestamo_item),
-                'cuenta_actualizada': json.loads(cuenta_response.get('body'))  # Detalles de la cuenta actualizada
+                'prestamo': decimal_to_serializable(prestamo_item)
+                 # Detalles de la cuenta actualizada
             }
         }
 
